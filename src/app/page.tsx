@@ -14,6 +14,8 @@ export default function Home() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     fetchNotes();
@@ -21,11 +23,17 @@ export default function Home() {
 
   const fetchNotes = async () => {
     try {
+      setLoading(true);
+      setError(null);
       const response = await fetch('/api/notes');
+      if (!response.ok) {
+        throw new Error('Failed to fetch notes');
+      }
       const data = await response.json();
       setNotes(data);
     } catch (error) {
-      console.error('Failed to fetch notes:', error);
+      console.error('Error fetching notes:', error);
+      setError('Failed to load notes. Please try again later.');
     } finally {
       setLoading(false);
     }
@@ -34,6 +42,8 @@ export default function Home() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      setSubmitting(true);
+      setError(null);
       const response = await fetch('/api/notes', {
         method: 'POST',
         headers: {
@@ -42,21 +52,28 @@ export default function Home() {
         body: JSON.stringify({ title, content }),
       });
       
-      if (response.ok) {
-        const newNote = await response.json();
-        setNotes([newNote, ...notes]);
-        setTitle('');
-        setContent('');
+      if (!response.ok) {
+        throw new Error('Failed to create note');
       }
+
+      const newNote = await response.json();
+      setNotes([newNote, ...notes]);
+      setTitle('');
+      setContent('');
     } catch (error) {
-      console.error('Failed to create note:', error);
+      console.error('Error creating note:', error);
+      setError('Failed to create note. Please try again.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <p>Loading notes...</p>
+        <div className="flex items-center justify-center">
+          <p className="text-lg">Loading notes...</p>
+        </div>
       </div>
     );
   }
@@ -64,6 +81,12 @@ export default function Home() {
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8">My Notes</h1>
+      
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          {error}
+        </div>
+      )}
       
       <form onSubmit={handleSubmit} className="mb-8">
         <div className="mb-4">
@@ -74,6 +97,7 @@ export default function Home() {
             placeholder="Note title"
             className="w-full p-2 border rounded"
             required
+            disabled={submitting}
           />
         </div>
         <div className="mb-4">
@@ -83,13 +107,17 @@ export default function Home() {
             placeholder="Note content"
             className="w-full p-2 border rounded h-32"
             required
+            disabled={submitting}
           />
         </div>
         <button
           type="submit"
-          className="bg-primary text-white px-4 py-2 rounded hover:bg-blue-600"
+          className={`bg-primary text-white px-4 py-2 rounded hover:bg-blue-600 ${
+            submitting ? 'opacity-50 cursor-not-allowed' : ''
+          }`}
+          disabled={submitting}
         >
-          Add Note
+          {submitting ? 'Adding Note...' : 'Add Note'}
         </button>
       </form>
 
