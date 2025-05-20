@@ -16,19 +16,29 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     fetchNotes();
-  }, []);
+  }, [retryCount]);
 
   const fetchNotes = async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch('/api/notes');
+      const response = await fetch('/api/notes', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        cache: 'no-store',
+      });
+
       if (!response.ok) {
-        throw new Error('Failed to fetch notes');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to fetch notes');
       }
+
       const data = await response.json();
       setNotes(data);
     } catch (error) {
@@ -53,7 +63,8 @@ export default function Home() {
       });
       
       if (!response.ok) {
-        throw new Error('Failed to create note');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to create note');
       }
 
       const newNote = await response.json();
@@ -66,6 +77,10 @@ export default function Home() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleRetry = () => {
+    setRetryCount(prev => prev + 1);
   };
 
   if (loading) {
@@ -83,8 +98,14 @@ export default function Home() {
       <h1 className="text-3xl font-bold mb-8">My Notes</h1>
       
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-          {error}
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 flex justify-between items-center">
+          <span>{error}</span>
+          <button
+            onClick={handleRetry}
+            className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
+          >
+            Retry
+          </button>
         </div>
       )}
       
